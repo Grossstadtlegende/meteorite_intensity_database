@@ -102,6 +102,13 @@ class Meteorite(Base):
     comment = Column(String(250))
     notes = Column(String(250))
     fall = Column(Boolean)
+    magnetic_carriers = Column(String(250))
+    iron_content = Column(Float) #
+    shock_stage = Column(String(10))
+    fall_date = Column(String(250))
+    subgroup = Column(String(250))
+    meteorites = relationship("Sample", backref=backref('meteorite'))
+
     def __repr__(self):
         return "<< %s >>" % (self.name)
 
@@ -109,11 +116,19 @@ class Sample(Base):
     __tablename__ = 'samples'
     id = Column(Integer, primary_key=True)
     name = Column(String(250))
-    group_id = Column(Integer, ForeignKey('group.id'))
+    meteorite_id = Column(Integer, ForeignKey('meteorites.id'))
     # reference_id = Column(Integer, ForeignKey('reference.id'))
     comment = Column(String(250))
     notes = Column(String(250))
-    fall = Column(Boolean)
+    intensity = Column(Float) # always stored in T
+    intensity_error = Column(Float) # always stored in T
+    lab_field = Column(Float) # always stored in T
+    fit_t_min = Column(Float)
+    fit_t_max = Column(Float)
+    determination_type = Column(String(250))
+    citekey = Column(String(250))
+    vacuum = Column(String(250))
+    inert_gas = Column(String(250))
 
 engine = create_engine('sqlite:///meteorite_intensity.db')
 # engine = create_engine('sqlite:///:memory:')
