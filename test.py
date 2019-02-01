@@ -1,5 +1,6 @@
 import helper
-from database_init import Kingdom
+from table_definitions import Kingdom
+
 session = helper.connect_db()
 
 K1 = Kingdom('differentiated')

@@ -1,6 +1,6 @@
 __author__ = 'mike'
 import helper
-from database_init import Group, Meteorite, Sample
+from table_definitions import Group, Meteorite, Sample
 
 
 def new_meteorite(name, group, subgroup=None,

@@ -1,138 +1,13 @@
 import os
-import sys
-from sqlalchemy import Column, ForeignKey, Integer, String, Float, Boolean
-from sqlalchemy.ext.declarative import declarative_base
+
+from sqlalchemy import exc
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import create_engine
 from sqlalchemy import Sequence
-import code
+
+from table_definitions import Kingdom, Cat, M_Class, Clan, Group
 import helper
 
-Base = declarative_base()
-
-
-class Kingdom(Base):
-    __tablename__ = 'kingdom'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(250))
-    comment = Column(String(250))
-    notes = Column(String(250))
-    # reference_id = Column(Integer, ForeignKey('reference.id'))
-    categories = relationship("Cat", backref=backref("kingdom"))
-
-    def __repr__(self):
-        return "<< %s >>" % (self.name)
-
-
-class Cat(Base):
-    __tablename__ = 'category'
-    id = Column(Integer, primary_key=True)
-    name = Column(String(250))
-    comment = Column(String(250))
-    notes = Column(String(250))
-    kingdom_id = Column(Integer, ForeignKey('kingdom.id'))
-    # reference_id = Column(Integer, ForeignKey('reference.id'))
-    # orders = relationship("Order", backref="classes", lazy='joined')
-    orders = relationship("M_Class", backref=backref('category'))
-
-    def __repr__(self):
-        return "<< %s >>" % (self.name)
-
-
-class M_Class(Base):
-    __tablename__ = 'm_class'
-    id = Column(Integer, primary_key=True)
-    name = Column(String(250))
-    comment = Column(String(250))
-    notes = Column(String(250))
-    cat_id = Column(Integer, ForeignKey('category.id'))
-    clans = relationship("Clan", backref=backref('m_class'))
-
-    # reference_id = Column(Integer, ForeignKey('reference.id'))
-
-    def __repr__(self):
-        return "<< %s >>" % (self.name)
-
-
-class Clan(Base):
-    __tablename__ = 'clan'
-    id = Column(Integer, primary_key=True)
-    name = Column(String(250))
-    m_class_id = Column(Integer, ForeignKey('m_class.id'))
-    # reference_id = Column(Integer, ForeignKey('reference.id'))
-    groups = relationship("Group", backref=backref('clan'))
-
-    def __repr__(self):
-        return "<< %s >>" % (self.name)
-
-
-class Group(Base):
-    __tablename__ = 'group'
-    id = Column(Integer, primary_key=True)
-    name = Column(String(250))
-    full_name = Column(String(250))
-    comment = Column(String(250))
-    notes = Column(String(250))
-    clan_id = Column(Integer, ForeignKey('clan.id'))
-    m_class_id = Column(Integer, ForeignKey('m_class.id'))
-    Ni_min = Column(Float)
-    Ni_max = Column(Float)
-    Ga_min = Column(Float)
-    Ga_max = Column(Float)
-    Ge_min = Column(Float)
-    Ge_max = Column(Float)
-    Ir_min = Column(Float)
-    Ir_max = Column(Float)
-    Ge_Ni_correlation = Column(String(250))
-    meteorites = relationship("Meteorite", backref=backref('group'))
-
-
-    #6.4-8.7% Ni, 55-100 ppm Ga, 190-520 ppm Ge, 0.6-5.5 ppm Ir, Ge-Ni correlation negativ.
-    # reference_id = Column(Integer, ForeignKey('reference.id'))
-
-    def __repr__(self):
-        return "<< %s >>" % (self.name)
-
-class Meteorite(Base):
-    __tablename__ = 'meteorites'
-    id = Column(Integer, primary_key=True)
-    name = Column(String(250))
-    group_id = Column(Integer, ForeignKey('group.id'))
-    # reference_id = Column(Integer, ForeignKey('reference.id'))
-    comment = Column(String(250))
-    notes = Column(String(250))
-    fall = Column(Boolean)
-    magnetic_carriers = Column(String(250))
-    iron_content = Column(Float) #
-    shock_stage = Column(String(10))
-    fall_date = Column(String(250))
-    subgroup = Column(String(250))
-    meteorites = relationship("Sample", backref=backref('meteorite'))
-
-    def __repr__(self):
-        return "<< %s >>" % (self.name)
-
-class Sample(Base):
-    __tablename__ = 'samples'
-    id = Column(Integer, primary_key=True)
-    name = Column(String(250))
-    meteorite_id = Column(Integer, ForeignKey('meteorites.id'))
-    # reference_id = Column(Integer, ForeignKey('reference.id'))
-    comment = Column(String(250))
-    notes = Column(String(250))
-    intensity = Column(Float) # always stored in T
-    intensity_error = Column(Float) # always stored in T
-    lab_field = Column(Float) # always stored in T
-    fit_t_min = Column(Float)
-    fit_t_max = Column(Float)
-    determination_type = Column(String(250))
-    citekey = Column(String(250))
-    vacuum = Column(String(250))
-    inert_gas = Column(String(250))
-
-engine = create_engine('sqlite:///meteorite_intensity.db')
-# engine = create_engine('sqlite:///:memory:')
-Base.metadata.create_all(engine)
 
 session = helper.connect_db()
 
@@ -140,16 +15,15 @@ session = helper.connect_db()
 diff = Kingdom(name='differentiated')
 undiff = Kingdom(name='undifferentiated')
 general = Kingdom(name='no kingdom')
-map(session.add, [diff, undiff, general])
-session.commit()
+
+helper.add_if_not_exists(session, Kingdom, [diff, undiff, general])
+
 ''' Categories '''
 chondr = Cat(name='chondrites', kingdom_id=undiff.id)
-primitive_achondr = Cat(name='primitive achondrites', kingdom_id=diff.id)
-achondr = Cat(name='achondrites', kingdom_id=general.id)
+primitive_achondr = Cat(name='primitive achondrites', kingdom_id=general.id)
+achondr = Cat(name='achondrites', kingdom_id=diff.id)
 
-map(session.add, [chondr, achondr, primitive_achondr])
-session.commit()
-session.flush()
+helper.add_if_not_exists(session, Cat, [chondr, achondr, primitive_achondr])
 
 ''' Classes '''
 ''' chondrites '''
@@ -162,12 +36,11 @@ rumuruti_ch = M_Class(name='rumuruti chondrite', cat_id=chondr.id)
 
 ''' achondrites '''
 primitive_ach = M_Class(name='primitive', cat_id=primitive_achondr.id)
-achondrites = M_Class(name='primitive', cat_id=achondr.id)
+achondrites = M_Class(name='achondrites', cat_id=achondr.id)
 
-map(session.add,
-    [carbonaceous_ch, ordinary_ch, enstatite_ch, kakangari_ch, rumuruti_ch, primitive_ach, achondrites])
-session.commit()
-session.flush()
+helper.add_if_not_exists(session, M_Class,
+                         [carbonaceous_ch, ordinary_ch, enstatite_ch, kakangari_ch, rumuruti_ch, primitive_ach,
+                          achondrites])
 
 ''' CLANS '''
 CI_clan = Clan(name='CI', m_class_id=carbonaceous_ch.id)
@@ -193,12 +66,12 @@ vesta_clan = Clan(name='vesta', m_class_id=achondrites.id)
 moon_clan = Clan(name='moon', m_class_id=achondrites.id)
 mars_clan = Clan(name='mars', m_class_id=achondrites.id)
 
-map(session.add, [CI_clan, CM_CO_clan, CV_CK_clan, CR_clan, H_L_LL_clan, EH_EL_clan, R_clan, K_clan,
-                  ureilites_clan, brachinites_clan, ACA_LOD_clan, WIN_IAB_IICD_clan,
-                  angrites_clan, aubrites_clan, mesosiderites_clan, pallasites_clan, iron_clan, vesta_clan, moon_clan,
-                  mars_clan])
-session.commit()
-session.flush()
+helper.add_if_not_exists(session, Clan,
+                         [CI_clan, CM_CO_clan, CV_CK_clan, CR_clan, H_L_LL_clan, EH_EL_clan, R_clan, K_clan,
+                          ureilites_clan, brachinites_clan, ACA_LOD_clan, WIN_IAB_IICD_clan,
+                          angrites_clan, aubrites_clan, mesosiderites_clan, pallasites_clan, iron_clan, vesta_clan,
+                          moon_clan,
+                          mars_clan])
 
 ''' Groups '''
 
@@ -208,7 +81,7 @@ CM = Group(name='CM', clan_id=CM_CO_clan.id)
 CO = Group(name='CO', clan_id=CM_CO_clan.id)
 
 CV = Group(name='CV', clan_id=CV_CK_clan.id)
-CK = Group(name='CV', clan_id=CV_CK_clan.id)
+CK = Group(name='CK', clan_id=CV_CK_clan.id)
 
 CR = Group(name='CR', clan_id=CR_clan.id)
 CH = Group(name='CH', clan_id=CR_clan.id)
@@ -224,7 +97,7 @@ EL = Group(name='EL', clan_id=EH_EL_clan.id)
 R = Group(name='rumuruti', clan_id=R_clan.id)
 K = Group(name='kakangari', clan_id=K_clan.id)
 
-map(session.add, [CI, CM, CO, CV, CK, CR, CH, CB, H, L, LL, EH, EL, R, K])
+helper.add_if_not_exists(session, Group, [CI, CM, CO, CV, CK, CR, CH, CB, H, L, LL, EH, EL, R, K])
 
 URE = Group(name='ureilites', clan_id=ureilites_clan.id)
 BRA = Group(name='brachinites', clan_id=brachinites_clan.id)
@@ -240,17 +113,17 @@ IAB = Group(name='IAB', clan_id=WIN_IAB_IICD_clan.id,
 # IA: Medium and coarse octahedrites, 6.4-8.7% Ni, 55-100 ppm Ga, 190-520 ppm Ge, 0.6-5.5 ppm Ir, Ge-Ni correlation negativ.
 # IB: Ataxites and medium octahedrites, 8.7-25% Ni, 11-55 ppm Ga, 25-190 ppm Ge, 0.3-2 ppm Ir, Ge-Ni correlation negativ.
 IICD = Group(name='IICD', clan_id=WIN_IAB_IICD_clan.id,
-            Ni_min=10e-2, Ni_max=23e-2,
-            Ga_min=1.5e-6, Ga_max=27e-6,
-            Ge_min=1.4e-6, Ge_max=70e-6,
-            Ir_min=0.02e-6, Ir_max=0.55e-6,
-            )
-#IIICD: Ataxites to fine octahedrites, 10-23% Ni, 1.5-27 ppm Ga, 1.4-70 ppm Ge, 0.02-0.55 ppm Ir
+             Ni_min=10e-2, Ni_max=23e-2,
+             Ga_min=1.5e-6, Ga_max=27e-6,
+             Ge_min=1.4e-6, Ge_max=70e-6,
+             Ir_min=0.02e-6, Ir_max=0.55e-6,
+             )
+# IIICD: Ataxites to fine octahedrites, 10-23% Ni, 1.5-27 ppm Ga, 1.4-70 ppm Ge, 0.02-0.55 ppm Ir
 
-map(session.add, [URE, BRA, ACA, LOD, WIN, IAB, IICD])
+helper.add_if_not_exists(session, Group, [URE, BRA, ACA, LOD, WIN, IAB, IICD])
 
 ANG = Group(name='angrites', clan_id=angrites_clan.id)
-AUB = Group(name='angrites', clan_id=aubrites_clan.id)
+AUB = Group(name='aubrites', clan_id=aubrites_clan.id)
 
 EUC = Group(name='EUC', full_name='eucrite', clan_id=vesta_clan.id)
 DIO = Group(name='DIO', full_name='diagonite', clan_id=vesta_clan.id)
@@ -268,8 +141,8 @@ IIAB = Group(name='IIAB', clan_id=iron_clan.id,
              Ge_min=107e-6, Ge_max=183e-6,
              Ir_min=0.01e-6, Ir_max=60e-6,
              Ge_Ni_correlation='negative')
-#IIA: Hexahedrites, 5.3-5.7% Ni, 57-62 ppm Ga, 170-185 ppm Ge, 2-60ppm Ir.
-#IIB: Coarsest octahedrites, 5.7-6.4% Ni, 446-59 pm Ga, 107-183 ppm Ge, 0.01-0.5 ppm Ir, Ge-Ni correlation negativ.
+# IIA: Hexahedrites, 5.3-5.7% Ni, 57-62 ppm Ga, 170-185 ppm Ge, 2-60ppm Ir.
+# IIB: Coarsest octahedrites, 5.7-6.4% Ni, 446-59 pm Ga, 107-183 ppm Ge, 0.01-0.5 ppm Ir, Ge-Ni correlation negativ.
 
 IIC = Group(name='IIC', full_name='IIC: plessitic octahedrites', clan_id=iron_clan.id,
             Ni_min=9.3e-2, Ni_max=11.5e-2,
@@ -277,7 +150,7 @@ IIC = Group(name='IIC', full_name='IIC: plessitic octahedrites', clan_id=iron_cl
             Ge_min=88e-6, Ge_max=114e-6,
             Ir_min=4e-6, Ir_max=11e-6,
             Ge_Ni_correlation='positive')
-#IIC: Plessitic octahedrites, 9.3-11.5% Ni, 37-39 ppm Ga, 88-114 ppm Ge, 4-11 ppm Ir, Ge-Ni correlation positiv
+# IIC: Plessitic octahedrites, 9.3-11.5% Ni, 37-39 ppm Ga, 88-114 ppm Ge, 4-11 ppm Ir, Ge-Ni correlation positiv
 
 IID = Group(name='IID', full_name='IID: fine to medium octahedrites', clan_id=iron_clan.id,
             Ni_min=9.8e-2, Ni_max=11.3e-2,
@@ -285,44 +158,43 @@ IID = Group(name='IID', full_name='IID: fine to medium octahedrites', clan_id=ir
             Ge_min=82e-6, Ge_max=98e-6,
             Ir_min=3.5e-6, Ir_max=18e-6,
             Ge_Ni_correlation='positive')
-#IID: Fine to medium octahedrites, 9.8-11.3%Ni, 70-83 ppm Ga, 82-98 ppm Ge, 3.5-18 ppm Ir, Ge-Ni correlation positiv
+# IID: Fine to medium octahedrites, 9.8-11.3%Ni, 70-83 ppm Ga, 82-98 ppm Ge, 3.5-18 ppm Ir, Ge-Ni correlation positiv
 
 IIE = Group(name='IIE', full_name='IIE: octahedrites of various coarseness', clan_id=iron_clan.id,
             Ni_min=7.5e-2, Ni_max=9.7e-2,
             )
-#IIE: octahedrites of various coarseness, 7.5-9.7% Ni, 21-28 ppm Ga, 60-75 ppm Ge, 1-8 ppm Ir, Ge-Ni correlation absent
+# IIE: octahedrites of various coarseness, 7.5-9.7% Ni, 21-28 ppm Ga, 60-75 ppm Ge, 1-8 ppm Ir, Ge-Ni correlation absent
 IIIAB = Group(name='IIIAB', full_name='IIIAB: Medium octahedrites', clan_id=iron_clan.id,
-               Ni_min=7.1e-2, Ni_max=10.5e-2,
-            )
-#IIIAB: Medium octahedrites, 7.1-10.5% Ni, 16-23 ppm Ga, 27-47 ppm Ge, 0.01-19 ppm Ir
+              Ni_min=7.1e-2, Ni_max=10.5e-2,
+              )
+# IIIAB: Medium octahedrites, 7.1-10.5% Ni, 16-23 ppm Ga, 27-47 ppm Ge, 0.01-19 ppm Ir
 
 
-IIIE = Group(name= 'IIIE', full_name='IIIE: Coarse octahedrites', clan_id=iron_clan.id,
-               Ni_min=8.2e-2, Ni_max=9.0e-2,
-            )
-#IIIE: Coarse octahedrites, 8.2-9.0% Ni, 17-19 ppm Ga, 3-37 ppm Ge, 0.05-6 ppm Ir, Ge-Ni correlation absent
+IIIE = Group(name='IIIE', full_name='IIIE: Coarse octahedrites', clan_id=iron_clan.id,
+             Ni_min=8.2e-2, Ni_max=9.0e-2,
+             )
+# IIIE: Coarse octahedrites, 8.2-9.0% Ni, 17-19 ppm Ga, 3-37 ppm Ge, 0.05-6 ppm Ir, Ge-Ni correlation absent
 IIIF = Group(name='IIIF', full_name='IIIF: Medium to coarse octahedrites', clan_id=iron_clan.id,
-               Ni_min=6.8e-2, Ni_max=7.8e-2,
-            )
-#IIIF: Medium to coarse octahedrites, 6.8-7.8% Ni,6.3-7.2 ppm Ga, 0.7-1.1 ppm Ge, 1.3-7.9 ppm Ir, Ge-Ni correlation absent
+             Ni_min=6.8e-2, Ni_max=7.8e-2,
+             )
+# IIIF: Medium to coarse octahedrites, 6.8-7.8% Ni,6.3-7.2 ppm Ga, 0.7-1.1 ppm Ge, 1.3-7.9 ppm Ir, Ge-Ni correlation absent
 IVA = Group(name='IVA', full_name='IVA: Fine octahedrites', clan_id=iron_clan.id,
-               Ni_min=7.4e-2, Ni_max=9.4e-2,
+            Ni_min=7.4e-2, Ni_max=9.4e-2,
             )
-#IVA: Fine octahedrites, 7.4-9.4% Ni, 1.6-2.4 ppm Ga, 0.09-0.14 ppm Ge, 0.4-4 ppm Ir, Ge-Ni correlation positiv
+# IVA: Fine octahedrites, 7.4-9.4% Ni, 1.6-2.4 ppm Ga, 0.09-0.14 ppm Ge, 0.4-4 ppm Ir, Ge-Ni correlation positiv
 
 IVB = Group(name='IVB', full_name='IVB: Ataxites', clan_id=iron_clan.id,
-               Ni_min=16e-2, Ni_max=26e-2,
+            Ni_min=16e-2, Ni_max=26e-2,
             )
-#IVB: Ataxites, 16-26% Ni, 0.17-0.27 ppm Ga, 0,03-0,07 ppm Ge, 13-38 ppm Ir, Ge-Ni correlation positiv
+# IVB: Ataxites, 16-26% Ni, 0.17-0.27 ppm Ga, 0,03-0,07 ppm Ge, 13-38 ppm Ir, Ge-Ni correlation positiv
 
-map(session.add, [ANG, AUB,
-                  EUC, DIO, HOW,
-                  MES,
-                  MGPAL, ESPAL, PPPAL,
-                  IC, IIAB, IIC, IID, IIE, IIIAB, IIIE, IIIF, IVA, IVB])
+helper.add_if_not_exists(session, Group, [ANG, AUB,
+                                          EUC, DIO, HOW,
+                                          MES,
+                                          MGPAL, ESPAL, PPPAL,
+                                          IC, IIAB, IIC, IID, IIE, IIIAB, IIIE, IIIF, IVA, IVB])
 
 session.commit()
 session.flush()
-
 
 # print  CI.name, CI.m_class, CI.m_class.category, CI.m_class.category.kingdom
